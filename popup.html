@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+    <head>
+        <title></title>
+        <link rel="stylesheet" type="text/css" href="css/pipejump.css" />
+
+        <script type="text/javascript" src="js/jquery.js"></script>
+		<script type="text/javascript" src="js/jquery.cookie.js"></script>
+        <script>
+
+            var bg = chrome.extension.getBackgroundPage();
+
+            function login() {
+                    console.log('send login form');
+                	var email = $('#email').attr('value');
+					var password = $('#password').attr('value');
+					bg.login(email, password);
+                    window.close();
+                }
+
+            function logout() {
+                    console.log('logout');
+					bg.logout();
+                    window.close();
+                }
+
+            function add_li(list, text) {
+                var list = document.getElementById(list);
+                var li = document.createElement("li");
+                li.innerHTML = text;
+                list.appendChild(li);
+            }
+
+            function refreshReminders() {
+                var loginForm = '<p><form id="submit" method="post">Email: <br /><input id="email" class="text" name="email" size="20" type="text"><br />Password: <br /><input id="password" class="text" name="password" size="20" type="password"><br /><INPUT TYPE="button" NAME="button" Value="Login" onClick="login()"></form></p>';
+                var logoutLink = '<INPUT TYPE="button" NAME="button" Value="Logout" onClick="logout()">';
+                if(bg.logged) {
+                    document.getElementById('logout').innerHTML = logoutLink;
+                    var notifications = bg.notifications;
+
+                    for(var i in notifications){
+                        for(var j in notifications[i])
+                        {
+                            var related_to = notifications[i][j].reminder.related_to.label;
+                            var reminder = notifications[i][j].reminder.content;
+                            var date = notifications[i][j].reminder.date;
+                            add_li('notification',related_to + ": " + reminder + " - " + date);
+                        }
+
+                    }
+                    bg.updateBadge();
+                }else {
+                    document.getElementById('content').innerHTML = loginForm;
+                }
+            }
+
+            window.onload = function(){
+                console.log('popup load');
+                refreshReminders();
+            }
+        </script>
+        <link rel="stylesheet" type="text/css"  href="css/pipejump.css" />
+        <style>
+            html {
+                overflow: hidden;
+                width: 650px;
+            }
+
+            .wrapper {
+                width: 650px !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="content">
+            <ul id="notification" class="entry-list-notification">
+            </ul>
+        </div>
+        <div id="logout" class="logout"></div>
+    </body>
+</html>

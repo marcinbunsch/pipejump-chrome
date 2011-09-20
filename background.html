@@ -1,0 +1,147 @@
+<html>
+<head>
+    <script type="text/javascript" src="js/jquery.js"></script>
+	<script type="text/javascript" src="js/jquery.cookie.js"></script>
+
+    <script>
+        var pollIntervalMin = 1000 * 10;
+        var pollIntervalMax = 1000 * 60;
+        var requestTimeout = 1000 * 15;
+        var requestFailureCount = 0;
+        var scheduled = false;
+        var logged = false;
+        var token = '';
+        var numberOfNotifications = 0;
+        var notifications = [];
+
+
+        function login(e, p) {
+				url = 'https://api.pipejump.com/v1/authentication.json';
+				data = "email=" + e + "&password=" + p;
+
+                $.post(url, data, function(data) {
+					token = data.authentication.token;
+					$.cookie("token", token);
+                    if(token) {
+                        console.log(token);
+                        logged = true;
+                        updateIcon();
+                    }
+				});
+			}
+
+        function logout() {
+                logged = false;
+                numberOfNotifications = 0;
+                notifications = [];
+                $.cookie('token',null);
+                updateBadge();
+                updateIcon();
+			}
+
+        function scheduleRequest() {
+            if(!scheduled){
+                scheduled = true;
+                var randomness = Math.random() * 2;
+                var exponent = Math.pow(2, requestFailureCount);
+                var delay = Math.min(randomness * pollIntervalMin * exponent, pollIntervalMax);
+                delay = Math.round(delay);
+                window.setTimeout(startRequest, delay);
+            }
+        }
+
+        function updateBadge(){
+            if (numberOfNotifications>0) {
+                chrome.browserAction.setBadgeText({
+                    text: numberOfNotifications.toString()
+                });
+                } else {
+                    chrome.browserAction.setBadgeText({
+                    text: ''
+                });
+            }
+        }
+
+        
+
+        function getNotifications() {
+            url = 'https://api.pipejump.com/v1/deals.json';
+			$.ajax({
+				dataType : 'json',
+				url : url,
+				beforeSend : function(jqXHR) {
+					jqXHR.setRequestHeader('X-Pipejump-Auth', token)
+				}
+			}).success(function(data) {
+                    numberOfNotifications=0;
+                    notifications = [];
+                    for(var i in data)
+                    {
+                    dealId = data[i].deal.id
+                    getNotificationsByDealId(dealId);
+                    }
+                updateBadge();
+			})
+
+
+        }
+
+        function getNotificationsByDealId(dealId) {
+            url = 'https://api.pipejump.com/v1/deals/' + dealId +'/reminders.json';
+			$.ajax({
+				dataType : 'json',
+				url : url,
+                async: false,
+				beforeSend : function(jqXHR) {
+					jqXHR.setRequestHeader('X-Pipejump-Auth', token)
+				}
+			}).success(function(data) {
+                for(var i in data)
+                    {
+                        numberOfNotifications++;
+                        notifications.push(data);
+                    }
+			})
+        }
+
+        function updateIcon(){
+            token = $.cookie('token');
+            if(token){
+                chrome.browserAction.setIcon({
+                    path: 'img/pj_on_19.png'
+                });
+            }else {
+                chrome.browserAction.setIcon({
+                    path: 'img/pj_off_19.png'
+                });
+            }
+        }
+
+        function startRequest() {
+            scheduled = false;
+            tid = setTimeout(function(){
+                getNotifications();
+                updateIcon();
+                scheduleRequest();
+                }, requestTimeout);
+        }
+
+        window.onload = function(){
+            if(localStorage.news){
+                news = parseInt(localStorage.news, 10);
+                news = isNaN(news) ? 0 : news;
+            }
+        updateBadge();
+        startRequest();
+        token = $.cookie('token');
+        if(token) {
+            console.log('logged from cookie');
+            logged = true;
+            updateIcon();
+        } else {
+            logged = false;
+        }
+    }
+    </script>
+</head>
+</html>
